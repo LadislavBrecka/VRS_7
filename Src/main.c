@@ -38,7 +38,12 @@ void proccesDmaData(uint8_t sign);
 
 /* Space for your global variables. */
 
-	// type your global variables here:
+//uint8_t tx_data[4][] = {"Buffer capacity: ",
+//						"bytes, occupied memory:",
+//						"bytes, load [in %]: ",
+//						"% \n\r"};
+
+uint8_t rx_data[10];
 
 
 int main(void)
@@ -69,7 +74,15 @@ int main(void)
 	   * Example message (what I wish to see in terminal) - Buffer capacity: 1000 bytes, occupied memory: 231 bytes, load [in %]: 23.1%
 	   */
 
-  	  	  	  //type your code here:
+	#if POLLING
+		//Polling for new data, no interrupts
+		USART2_CheckDmaReception();
+		LL_mDelay(10);
+	#else
+
+		USART2_PutBuffer();
+		LL_mDelay(200);
+	#endif
   }
   /* USER CODE END 3 */
 }

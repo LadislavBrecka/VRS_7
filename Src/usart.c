@@ -71,12 +71,42 @@ void MX_USART2_UART_Init(void)
   
   /* USART2_RX Init */
 
-  	  // type DMA USART Rx configuration here
+  LL_DMA_SetDataTransferDirection(DMA1, LL_DMA_CHANNEL_6, LL_DMA_DIRECTION_PERIPH_TO_MEMORY);
+  LL_DMA_SetChannelPriorityLevel(DMA1, LL_DMA_CHANNEL_6, LL_DMA_PRIORITY_MEDIUM);
+  LL_DMA_SetMode(DMA1, LL_DMA_CHANNEL_6, LL_DMA_MODE_NORMAL);
+  LL_DMA_SetPeriphIncMode(DMA1, LL_DMA_CHANNEL_6, LL_DMA_PERIPH_NOINCREMENT);
+  LL_DMA_SetMemoryIncMode(DMA1, LL_DMA_CHANNEL_6, LL_DMA_MEMORY_INCREMENT);
+  LL_DMA_SetPeriphSize(DMA1, LL_DMA_CHANNEL_6, LL_DMA_PDATAALIGN_BYTE);
+  LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_6, LL_DMA_MDATAALIGN_BYTE);
 
+  LL_DMA_ConfigAddresses(	DMA1, LL_DMA_CHANNEL_6,
+  						 	LL_USART_DMA_GetRegAddr(USART2, LL_USART_DMA_REG_DATA_RECEIVE),
+  							(uint32_t) bufferUSART2dma,
+  							LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_CHANNEL_6));
+
+    LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_6, DMA_USART2_BUFFER_SIZE);
+    LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_6);
+    LL_USART_EnableDMAReq_RX(USART2);
+
+#if !POLLING
+  LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_6);
+  LL_DMA_EnableIT_HT(DMA1, LL_DMA_CHANNEL_6);
+#endif
 
   /* USART2_TX Init */
 
-	  // type DMA USART Tx configuration here
+   LL_DMA_SetDataTransferDirection(DMA1, LL_DMA_CHANNEL_7, LL_DMA_DIRECTION_MEMORY_TO_PERIPH);
+   LL_DMA_SetChannelPriorityLevel(DMA1, LL_DMA_CHANNEL_7, LL_DMA_PRIORITY_MEDIUM);
+   LL_DMA_SetMode(DMA1, LL_DMA_CHANNEL_7, LL_DMA_MODE_NORMAL);
+   LL_DMA_SetPeriphIncMode(DMA1, LL_DMA_CHANNEL_7, LL_DMA_PERIPH_NOINCREMENT);
+   LL_DMA_SetMemoryIncMode(DMA1, LL_DMA_CHANNEL_7, LL_DMA_MEMORY_INCREMENT);
+   LL_DMA_SetPeriphSize(DMA1, LL_DMA_CHANNEL_7, LL_DMA_PDATAALIGN_BYTE);
+   LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_7, LL_DMA_MDATAALIGN_BYTE);
+
+   LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_7, LL_USART_DMA_GetRegAddr(USART2, LL_USART_DMA_REG_DATA_TRANSMIT));
+   LL_USART_EnableDMAReq_TX(USART2);
+
+   LL_DMA_EnableIT_TE(DMA1, LL_DMA_CHANNEL_7);
 
 
   /* USART2 interrupt Init */
@@ -94,18 +124,26 @@ void MX_USART2_UART_Init(void)
   LL_USART_ConfigAsyncMode(USART2);
   LL_USART_DisableIT_CTS(USART2);
 
-  /* Enable USART2 peripheral and interrupts*/
-
-  	  //type your code here:
+#if !POLLING
+  LL_USART_EnableIT_IDLE(USART2);
+#endif
+  LL_USART_ConfigAsyncMode(USART2);
+  LL_USART_Enable(USART2);
 }
 
 
 // Send data stored in buffer with DMA
-void USART2_PutBuffer(uint8_t *buffer, uint8_t length)
+void USART2_PutBuffer()
 {
-	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_7, (uint32_t)buffer);
+	uint16_t pos = DMA_USART2_BUFFER_SIZE - LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_6);
+	uint8_t tx_data[] = "Buffer capacity: %d bytes, occupied memory: %d bytes, load [in %%]: %.2f %%\r\n";
+	uint8_t str[sizeof(tx_data)];
+	sprintf(str,tx_data,DMA_USART2_BUFFER_SIZE,pos,(pos*100/DMA_USART2_BUFFER_SIZE));
 
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_7, length);
+
+	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_7, (uint32_t)str);
+
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_7,  sizeof(str)-1);
 
 	LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_7);
 
@@ -121,7 +159,36 @@ void USART2_PutBuffer(uint8_t *buffer, uint8_t length)
  */
 void USART2_CheckDmaReception(void)
 {
-	//type your implementation here
+	//prerobit
+	if(USART2_ProcessData == 0) return;
+
+		static uint16_t old_pos = 0;
+
+		uint16_t pos = DMA_USART2_BUFFER_SIZE - LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_6);
+
+		if (pos != old_pos)
+		{
+			if (pos > old_pos)
+			{
+			//	USART2_ProcessData(&bufferUSART2dma[old_pos], pos - old_pos);
+			}
+			else
+			{
+			//	USART2_ProcessData(&bufferUSART2dma[old_pos], DMA_USART2_BUFFER_SIZE - old_pos);
+
+				if (pos > 0)
+				{
+				//	USART2_ProcessData(&bufferUSART2dma[0], pos);
+				}
+			}
+		}
+
+		old_pos = pos;
+
+		if (old_pos == DMA_USART2_BUFFER_SIZE)
+		{
+			old_pos = 0;
+		}
 }
 
 
