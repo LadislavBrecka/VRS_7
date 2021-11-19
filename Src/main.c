@@ -33,7 +33,7 @@ void SystemClock_Config(void);
  *
  * @param1 - received sign
  */
-void proccesDmaData(uint8_t sign);
+void proccesDmaData(const uint8_t* sign, int pos);
 
 
 /* Space for your global variables. */
@@ -43,15 +43,17 @@ void proccesDmaData(uint8_t sign);
 //						"bytes, load [in %]: ",
 //						"% \n\r"};
 
-uint8_t rx_data[10];
-
-
+uint8_t rx_data[35];
+uint8_t id = 0;
+uint8_t start = 0;
+uint8_t upper = 0;
+uint8_t lower = 0;
 int main(void)
 {
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);
+LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_PWR);
   NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
 
@@ -64,7 +66,7 @@ int main(void)
 
   /* Space for your local variables, callback registration ...*/
 
-  	  //type your code here:
+  USART2_RegisterCallback(proccesDmaData);
 
   while (1)
   {
@@ -80,7 +82,7 @@ int main(void)
 		LL_mDelay(10);
 	#else
 
-		USART2_PutBuffer();
+		USART2_PutBuffer(0,0);
 		LL_mDelay(200);
 	#endif
   }
@@ -119,14 +121,50 @@ void SystemClock_Config(void)
   LL_SetSystemCoreClock(8000000);
 }
 
+
+
 /*
  * Implementation of function processing data received via USART.
  */
-void proccesDmaData(uint8_t sign)
-{
-	/* Process received data */
 
-		// type your algorithm here:
+void proccesDmaData(const uint8_t* sign,int pos)
+{
+	  for(uint8_t i = 0; i < pos; i++)
+	    {
+		  uint8_t a = *(sign+i);
+		  if (start == 1 && id >=34 ){
+		  		start=0;
+		  		id=0;
+		  	}else if(start == 1){
+		  		if(a=='$'){
+		  			for(uint8_t d = 0; d <= id; d++){
+		  				if (rx_data[d] >= 'A' && rx_data[d] <= 'Z') {
+		  				    // upper case
+		  					upper+=1;
+		  				} else if (rx_data[d] >= 'a' && rx_data[d] <= 'z') {
+		  				   // lower case
+		  					lower+=1;
+		  				}
+		  			}
+
+		  			memset(&rx_data[0], 0, sizeof(rx_data));
+		  			start=0;
+		  			id=0;
+		  		}else{
+		  			rx_data[id]= a;
+		  			id +=1;
+		  		}
+
+			}
+
+			if(a == '#')
+			{
+				start=1;
+				upper = 0;
+				lower = 0;
+			}
+
+	    }
 }
 
 
